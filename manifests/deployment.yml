@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "menuitemwepapi-4b8f"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "menuitemwepapi-4b8f"
+  template:
+    metadata:
+      labels:
+        app: "menuitemwepapi-4b8f"
+    spec:
+      containers:
+        - name: "menuitemwepapi-4b8f"
+          image: "gitazurecheck.azurecr.io/menuitemwepapi"
+          ports:
+          - containerPort: 80
