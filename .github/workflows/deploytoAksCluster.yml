@@ -1,0 +1,50 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: gitazurecheck.azurecr.io
+        username: ${{ secrets.acr_gitazurecheck_username }}
+        password: ${{ secrets.acr_gitazurecheck_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/MenuItemsListingAPI" -f  "MenuItemsListingAPI/Dockerfile" -t gitazurecheck.azurecr.io/menuitemwepapi:${{ github.sha }} --label dockerfile-path=MenuItemsListingAPI/Dockerfile
+        docker push gitazurecheck.azurecr.io/menuitemwepapi:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_menuitemwepapi_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep menuitemwepapi98ee | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace menuitemwepapi98ee`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: menuitemwepapi98ee
+        container-registry-url: gitazurecheck.azurecr.io
+        container-registry-username: ${{ secrets.acr_gitazurecheck_username }}
+        container-registry-password: ${{ secrets.acr_gitazurecheck_password }}
+        secret-name: menuitemwepadockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: menuitemwepapi98ee
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+        images: |
+          gitazurecheck.azurecr.io/menuitemwepapi:${{ github.sha }}
+        imagepullsecrets: |
+          menuitemwepadockerauth
